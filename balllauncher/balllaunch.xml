@@ -1,0 +1,49 @@
+<mujoco model="ball_launch">
+    <compiler angle="degree" coordinate="local"/>
+    <option timestep="0.001" gravity="0 0 -9.81" viscosity="0"/>
+    
+    <asset>
+        <material name="table_mat" rgba="0.0 0.3 0.8 1"/>
+        <material name="net_mat" rgba="0.2 0.2 0.2 1"/>
+        <material name="ball_mat" rgba="1 1 1 1"/>
+        <material name="ground_mat" rgba="0.7 0.7 0.7 1"/>
+    </asset>
+
+    <worldbody>
+        <light diffuse=".8 .8 .8" pos="1.37 0 2" dir="0 0 -1"/>
+        <geom name="ground" type="plane" size="5 5 0.1" material="ground_mat"/>
+        
+        <!-- Standard table tennis table (regulation size) -->
+        <body name="table" pos="1.37 0 0.76">
+            <!-- Table surface: 2.74m x 1.525m x 0.05m thick -->
+            <geom name="table_geom" type="box" size="1.37 0.7625 0.025" material="table_mat"/>
+        </body>
+        
+        <!-- Standard table tennis net -->
+        <body name="net" pos="1.37 0 0.8375"> 
+            <!-- Net: 15.25cm high, spanning full table width -->
+            <geom name="net_geom" type="box" size="0.01 0.7625 0.0763" material="net_mat"/>
+        </body>
+        
+        <!-- Table tennis ball (40mm diameter, 2.7g mass) -->
+        <body name="ball_body" pos="-0.8 0 1.25">
+            <freejoint name="ball_free"/>
+            <!-- Standard ping pong ball: 40mm diameter, 2.7g mass -->
+            <geom name="ball" type="sphere" size="0.02" mass="0.0027" material="ball_mat"/>
+        </body>
+    </worldbody>
+
+    <contact>
+        <!-- Ball-table contact: realistic ping pong ball physics -->
+        <pair geom1="ball" geom2="table_geom" 
+              solref="0.001 1" solimp="0.9 0.95 0.001" friction="0.6 0.02 0.001"/>
+        
+        <!-- Ball-net contact: softer collision -->
+        <pair geom1="ball" geom2="net_geom" 
+              solref="0.01 1" solimp="0.5 0.7 0.01" friction="0.8 0.05 0.001"/>
+        
+        <!-- Ball-ground contact: floor bounce -->
+        <pair geom1="ball" geom2="ground" 
+              solref="0.002 1" solimp="0.8 0.9 0.001" friction="0.3 0.01 0.001"/>
+    </contact>
+</mujoco>
