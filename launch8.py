@@ -23,7 +23,7 @@ class SimpleTableTennisLauncher:
         
     def print_environment_info(self):
         print("\n=== Environment Info ===")
-        default_launch = [-0.8, 0.0, 1.25]
+        default_launch = [-0.5, 0.0, 1.25]
         print(f"Default launch position: {default_launch}")
         qposadr = self.model.jnt_qposadr[self.ball_joint_id]
         ball_init = self.data.qpos[qposadr:qposadr+3]
@@ -85,7 +85,7 @@ class SimpleTableTennisLauncher:
     def get_hitting_position(self, phi, theta, rpm_tl, rpm_tr, rpm_bc, launch_pos=None, max_time=4.0,
                         use_system_effects=False, ramp_time=3.0, stroke_gain=0.10, pinch_diameter=37.4):
      if launch_pos is None:
-        launch_pos = [-0.8, 0.0, 1.25]
+        launch_pos = [-0.5, 0.0, 1.25]
      v0, spin = self.parameters_to_velocity_spin(phi, theta, rpm_tl, rpm_tr, rpm_bc)
      if use_system_effects:
         v0 = self.apply_ramp_time_effects(v0, ramp_time)
@@ -160,7 +160,7 @@ class SimpleTableTennisLauncher:
             for i, hit in enumerate(hit_points):
                 ax1.annotate(f'Hit {i+1}', (hit[0], hit[2]), xytext=(5, 5),
                             textcoords='offset points', fontsize=8, color='red')
-        ax1.set_xlim(-0.8, table_length + 0.5) 
+        ax1.set_xlim(-0.5, table_length + 0.5) 
         ax1.set_ylim(0, table_top + net_height + 0.5)
         ax1.set_xlabel('X Position (m)')
         ax1.set_ylabel('Z Position (m)')
@@ -179,7 +179,7 @@ class SimpleTableTennisLauncher:
             for i, hit in enumerate(hit_points):
                 ax2.annotate(f'Hit {i+1}', (hit[0], hit[1]), xytext=(5, 5),
                             textcoords='offset points', fontsize=8, color='red')
-        ax2.set_xlim(-0.8, table_length + 0.5)
+        ax2.set_xlim(-0.5, table_length + 0.5)
         ax2.set_ylim(-table_width/2 - 0.2, table_width/2 + 0.2)
         ax2.set_xlabel('X Position (m)')
         ax2.set_ylabel('Y Position (m)')
@@ -192,7 +192,7 @@ class SimpleTableTennisLauncher:
     
     def run_3d_viewer(self, phi, theta, rpm_tl, rpm_tr, rpm_bc, launch_pos=None):
         if launch_pos is None:
-            launch_pos = [-0.8,0.0,1.25]
+            launch_pos = [-0.5,0.0,1.25]
         v0, spin = self.parameters_to_velocity_spin(phi, theta, rpm_tl, rpm_tr, rpm_bc)
         self.launch_ball_in_mujoco(launch_pos, v0, spin)
         print(f"\nLaunching 3D viewer with parameters:")
@@ -307,11 +307,11 @@ class SimpleTableTennisLauncher:
 
     def apply_stroke_gain_effects(self, spin, stroke_gain):
      if stroke_gain < 0.1:
-        spin_error = np.random.normal(0, 0.1)  # ±0.1 rad/s error
+        spin_error = np.random.normal(0, 0.1)
      elif stroke_gain > 1.0:
-        spin_error = np.random.normal(0, 0.5)  # ±0.5 rad/s error
+        spin_error = np.random.normal(0, 0.5)  
      else:
-        spin_error = np.random.normal(0, 0.2)  # ±0.2 rad/s error
+        spin_error = np.random.normal(0, 0.2)  
      return spin + spin_error
 
     def apply_pinch_diameter_effects(self, velocity, spin, pinch_diameter):
@@ -564,7 +564,7 @@ class SimpleTableTennisLauncher:
      ax.set_ylabel('Y Position (m)', fontsize=12)
      ax.set_zlabel('Z Position (m)', fontsize=12)
      ax.set_title('3D Ball Trajectories - Table Tennis Launcher Analysis', fontsize=14)
-     ax.set_xlim(-0.8, table_length + 0.5)
+     ax.set_xlim(-0.5, table_length + 0.5)
      ax.set_ylim(-table_width/2 - 0.2, table_width/2 + 0.2)
      ax.set_zlim(0, 1.8)
      ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
@@ -604,11 +604,11 @@ def main():
     print(" TABLE TENNIS BALL LAUNCHER - COMPLETE ANALYSIS SYSTEM")
     print("-" * 70)
     print("Input 5 launcher parameters:")
-    print("• φ (phi): Horizontal angle in RADIANS (-0.52 to 0.52 rad, ±30°)")
-    print("• θ (theta): Vertical angle in RADIANS (0 to 0.79 rad, 0° to 45°)")
-    print("• rpm_tl: Top-left wheel RPM (500-2000)")
-    print("• rpm_tr: Top-right wheel RPM (500-2000)")
-    print("• rpm_bc: Back-center wheel RPM (500-2000)")
+    print("• φ (phi): Horizontal angle in RADIANS (-0.52 to 0.52 rad)")
+    print("• θ (theta): Vertical angle in RADIANS (0 to 0.79 rad)")
+    print("• rpm_tl: Top-left wheel RPM ")
+    print("• rpm_tr: Top-right wheel RPM ")
+    print("• rpm_bc: Back-center wheel RPM ")
     print("="*70)
     
     while True:
