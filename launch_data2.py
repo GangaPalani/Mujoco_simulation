@@ -9,75 +9,15 @@ class SingleShotDatasetCreator:
 
     def __init__(self, xml_path):
         self.launcher = SimpleTableTennisLauncher(xml_path)
-    """
-    def cut_trajectory_on_first_contact(self, positions, velocities, times, 
-                                      hit_table, table_hit_position, 
-                                      hit_ground, ground_hit_position):
-        
-        if not hit_table and not hit_ground:
-            print("  No contact detected, keeping full trajectory")
-            return positions, velocities, times
-        
-        contact_pos = None
-        contact_type = ""
-
-        if hit_table and hit_ground:
-            
-            table_pos = np.array(table_hit_position)
-            ground_pos = np.array(ground_hit_position)
-            
-            table_idx = self._find_contact_index(positions, table_pos)
-            ground_idx = self._find_contact_index(positions, ground_pos)
-            
-            if table_idx < ground_idx:
-                contact_pos = table_pos
-                contact_type = "table"
-                cutoff_idx = table_idx
-            else:
-                contact_pos = ground_pos
-                contact_type = "ground"
-                cutoff_idx = ground_idx
-                
-        elif hit_table:
-            contact_pos = np.array(table_hit_position)
-            contact_type = "table"
-            cutoff_idx = self._find_contact_index(positions, contact_pos)
-            
-        elif hit_ground:
-            contact_pos = np.array(ground_hit_position)
-            contact_type = "ground"
-            cutoff_idx = self._find_contact_index(positions, contact_pos)
-        
-        if cutoff_idx is not None and cutoff_idx > 0:
-            print(f"  Cutting trajectory at {contact_type} contact (index {cutoff_idx})")
-            print(f"  Original length: {len(positions)} -> Cut length: {cutoff_idx + 1}")
-            
-            return positions[:cutoff_idx + 1], velocities[:cutoff_idx + 1], times[:cutoff_idx + 1]
-        else:
-            print("  Contact index not found, keeping full trajectory")
-            return positions, velocities, times
-    
-    def _find_contact_index(self, positions, contact_position, threshold=0.05):
-        min_distance = float('inf')
-        best_index = None
-        
-        for i, pos in enumerate(positions):
-            distance = np.linalg.norm(pos - contact_position)
-            if distance < min_distance:
-                min_distance = distance
-                best_index = i
-                
-            if distance < threshold:
-                return i
-        
-        return best_index  """
     
     def cut_trajectory_on_first_contact(self, positions, velocities, times, 
                                   hit_table, table_hit_position, 
                                   hit_ground, ground_hit_position):
+    #Cut trajectory directly at hit position - no time estimation needed
     
      if not hit_table and not hit_ground:
         return positions, velocities, times
+    
      contact_pos = None
      contact_type = ""
     
@@ -87,31 +27,25 @@ class SingleShotDatasetCreator:
      elif hit_ground:
         contact_pos = np.array(ground_hit_position)
         contact_type = "ground"
-    
-     cutoff_idx = self._find_last_point_before_contact(positions, contact_pos)
+     cutoff_idx = self._find_closest_point_to_contact(positions, contact_pos)
     
      if cutoff_idx is not None:
         cut_positions = positions[:cutoff_idx + 1]
         cut_velocities = velocities[:cutoff_idx + 1]
         cut_times = times[:cutoff_idx + 1]
         
-        contact_time = self._estimate_contact_time(
-            positions[cutoff_idx], velocities[cutoff_idx], 
-            contact_pos, times[cutoff_idx]
-        )
-        cut_positions = np.vstack([cut_positions, contact_pos])
-        contact_velocity = velocities[cutoff_idx] * 0.5 
-        cut_velocities = np.vstack([cut_velocities, contact_velocity])
-        cut_times = np.append(cut_times, contact_time)
+        cut_positions[-1] = contact_pos
         
-        print(f"  Added exact {contact_type} contact point at t={contact_time:.3f}s")
-        print(f"  Contact position: ({contact_pos[0]:.3f}, {contact_pos[1]:.3f}, {contact_pos[2]:.3f})")
+        print(f"  Cut trajectory at {contact_type} contact (index {cutoff_idx})")
+        print(f"  Exact contact position: ({contact_pos[0]:.3f}, {contact_pos[1]:.3f}, {contact_pos[2]:.3f})")
+        print(f"  Final trajectory length: {len(cut_positions)} points")
         
         return cut_positions, cut_velocities, cut_times
     
      return positions, velocities, times
 
-    def _find_last_point_before_contact(self, positions, contact_position):
+    def _find_closest_point_to_contact(self, positions, contact_position):
+      #Find trajectory point closest to the contact position
       min_distance = float('inf')
       best_index = 0
     
@@ -120,21 +54,10 @@ class SingleShotDatasetCreator:
         if distance < min_distance:
             min_distance = distance
             best_index = i
-        else:
-            return best_index - 1 if best_index > 0 else 0
     
       return best_index
 
-    def _estimate_contact_time(self, last_pos, last_vel, contact_pos, last_time):
-     distance_to_contact = np.linalg.norm(contact_pos - last_pos)
-     velocity_magnitude = np.linalg.norm(last_vel)
     
-     if velocity_magnitude > 0:
-        time_to_contact = distance_to_contact / velocity_magnitude
-        return last_time + time_to_contact
-     else:
-        return last_time + 0.001  
-     
     def save_single_shot_to_hdf5(self, phi, theta, rpm_tl, rpm_tr, rpm_bc, 
                                 filename="single_shot_trajectory.hdf5",
                                 use_system_effects=False, ramp_time=3.0,
