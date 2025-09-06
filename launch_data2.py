@@ -3,7 +3,7 @@ import numpy as np
 import pathlib
 from datetime import datetime
 from launch8 import SimpleTableTennisLauncher
-
+#cutting trajectory till first contact
 
 class SingleShotDatasetCreator:
 
