@@ -9,7 +9,7 @@
     ```
     pip install mujoco numpy matplotlib h5py
     ```
-### Usage
+ ### Usage
 
  - mujoco version 3.3.5
 
@@ -40,7 +40,7 @@
 
 ---
 
-### Future Plan
+## Future Plan
 
 - Simulation (Implement realistic ball bounce mechanics after table contact).
 - Dataset Generation (Done for single Trajectory , Automate batch trajectory generation with parameter sweeps).
