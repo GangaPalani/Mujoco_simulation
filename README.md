@@ -19,9 +19,9 @@
     ```
 
   ### Features
-  - Analyse Parameters with Plots alone
+  - Analyse Parameters with Plot
   - Analyse only Parameters
-  - Analyse Parameters with 3D Viewer
+  - Analyse Parameters with 3D Viewer and Plot
   - Test System Parameter consistency with 3D Trajectory and Deviation Plots
     -  Noise based variations
     -  Realistic variations
