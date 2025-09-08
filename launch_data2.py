@@ -2,7 +2,8 @@ import h5py
 import numpy as np
 import pathlib
 from datetime import datetime
-from launch8 import SimpleTableTennisLauncher
+from launch_simulation import SimpleTableTennisLauncher
+import os
 #cutting trajectory till first contact
 
 class SingleShotDatasetCreator:
@@ -13,7 +14,6 @@ class SingleShotDatasetCreator:
     def cut_trajectory_on_first_contact(self, positions, velocities, times, 
                                   hit_table, table_hit_position, 
                                   hit_ground, ground_hit_position):
-    #Cut trajectory directly at hit position - no time estimation needed
     
      if not hit_table and not hit_ground:
         return positions, velocities, times
@@ -45,7 +45,6 @@ class SingleShotDatasetCreator:
      return positions, velocities, times
 
     def _find_closest_point_to_contact(self, positions, contact_position):
-      #Find trajectory point closest to the contact position
       min_distance = float('inf')
       best_index = 0
     
@@ -57,7 +56,6 @@ class SingleShotDatasetCreator:
     
       return best_index
 
-    
     def save_single_shot_to_hdf5(self, phi, theta, rpm_tl, rpm_tr, rpm_bc, 
                                 filename="single_shot_trajectory.hdf5",
                                 use_system_effects=False, ramp_time=3.0,
@@ -80,6 +78,10 @@ class SingleShotDatasetCreator:
         if len(result['trajectory']) == 0:
             print("ERROR: No trajectory data generated!")
             return None
+    
+        if result['hit_found_ground'] and not result['hit_found_table']:
+           print("SKIPPING: Ball hit ground before table - not storing trajectory")
+           return None
         
         print(f"Trajectory generated successfully!")
         print(f"  Original trajectory length: {len(result['trajectory'])} points")
@@ -99,55 +101,60 @@ class SingleShotDatasetCreator:
                 result['hit_found_ground'], result['hit_position_ground']
             )
         
-        with h5py.File(filename, 'w') as hf:
-            meta_group = hf.create_group('metadata')
-            meta_group.attrs['creation_time'] = datetime.now().isoformat()
-            
-            launch_params = [phi, theta, rpm_tl, rpm_tr, rpm_bc]
-            if use_system_effects:
-                launch_params.extend([ramp_time, stroke_gain, pinch_diameter])
-            
-            meta_group.attrs['phi'] = phi
-            meta_group.attrs['theta'] = theta
-            meta_group.attrs['rpm_tl'] = rpm_tl
-            meta_group.attrs['rpm_tr'] = rpm_tr
-            meta_group.attrs['rpm_bc'] = rpm_bc
-            meta_group.attrs['system_effects_enabled'] = use_system_effects
-            meta_group.attrs['cut_at_contact'] = cut_at_contact
-            
-            if use_system_effects:
-                meta_group.attrs['ramp_time'] = ramp_time
-                meta_group.attrs['stroke_gain'] = stroke_gain
-                meta_group.attrs['pinch_diameter'] = pinch_diameter
-            
-            meta_group.attrs['hit_table'] = result['hit_found_table']
-            meta_group.attrs['hit_ground'] = result['hit_found_ground']
-            meta_group.attrs['original_trajectory_length'] = len(result['trajectory'])
-            meta_group.attrs['final_trajectory_length'] = len(positions)
-            meta_group.attrs['original_simulation_time'] = result['times'][-1] if len(result['times']) > 0 else 0.0
-            meta_group.attrs['final_simulation_time'] = times[-1] if len(times) > 0 else 0.0
-            
-            if result['hit_found_table']:
-                meta_group.create_dataset('table_hit_position', data=result['hit_position_table'])
-            if result['hit_found_ground']:
-                meta_group.create_dataset('ground_hit_position', data=result['hit_position_ground'])
-            
-            traj_group = hf.create_group('trajectory_data')
-            
-            traj_group.create_dataset('positions', data=positions, 
-                                    compression='gzip', compression_opts=6)
-            traj_group.create_dataset('velocities', data=velocities,
-                                    compression='gzip', compression_opts=6) 
-            traj_group.create_dataset('times', data=times,
-                                    compression='gzip', compression_opts=6)
-            
-            traj_group.create_dataset('launch_parameters', data=launch_params)
-        
-        print(f"\nTrajectory saved to: {filename}")
-        print(f"Final trajectory contains {len(positions)} points over {times[-1]:.3f}s")
-        return filename
+        dataset_exists = self.check_dataset_exists(filename)
 
-    def load_single_shot_from_hdf5(self, filename="single_shot_trajectory.hdf5"):
+        if dataset_exists:
+          traj_index = self.get_next_trajectory_index(filename)
+          file_mode = 'a' 
+          print(f"Appending as trajectory_{traj_index}")
+        else:
+          traj_index = 0
+          file_mode = 'w'  
+          print(f"Creating new dataset")
+
+        with h5py.File(filename, file_mode) as hf:
+
+         
+         if file_mode == 'w':
+          trajectories_group = hf.create_group('trajectories')
+         else:
+          trajectories_group = hf['trajectories']
+         launch_params = [phi, theta, rpm_tl, rpm_tr, rpm_bc]
+        
+        
+         traj_group = trajectories_group.create_group(f'{traj_index:06d}')
+         
+         traj_group.attrs['phi'] = phi
+         traj_group.attrs['theta'] = theta
+         traj_group.attrs['rpm_tl'] = rpm_tl
+         traj_group.attrs['rpm_tr'] = rpm_tr
+         traj_group.attrs['rpm_bc'] = rpm_bc
+        
+         traj_group.create_dataset('launch_parameters', data=launch_params)
+         traj_group.create_dataset('positions', data=positions, compression='gzip', compression_opts=6)
+         traj_group.create_dataset('velocities', data=velocities, compression='gzip', compression_opts=6)
+         traj_group.create_dataset('times', data=times, compression='gzip', compression_opts=6)
+         
+
+         traj_group.attrs['hit_table'] = result['hit_found_table']
+         traj_group.attrs['hit_ground'] = result['hit_found_ground']
+         traj_group.attrs['original_trajectory_length'] = len(result['trajectory'])
+         traj_group.attrs['final_trajectory_length'] = len(positions)
+         traj_group.attrs['original_simulation_time'] = result['hit_found_ground']
+         traj_group.attrs['final_simulation_time'] = times[-1] if len(times) > 0 else 0.0 
+         
+         if result['hit_found_table']:
+          traj_group.create_dataset('table_hit_position', data=result['hit_position_table'])
+          traj_group.attrs['hit_table'] = True
+         if result['hit_found_ground']:
+          traj_group.create_dataset('ground_hit_position', data=result['hit_position_ground'])
+          traj_group.attrs['hit_ground'] = True
+
+         traj_group.attrs['hit_table'] = result['hit_found_table']
+         traj_group.attrs['hit_ground'] = result['hit_found_ground']
+
+         return filename
+    def load_single_shot_from_hdf5(self, filename="trajectory_dataset.hdf5"):
         
         print(f"Loading trajectory from: {filename}")
         print("=" * 50)
@@ -211,7 +218,21 @@ class SingleShotDatasetCreator:
             print(f"Error loading file: {e}")
             return None
 
+    def check_dataset_exists(self, filename):
+     return os.path.exists(filename)
 
+    def get_next_trajectory_index(self, filename):
+     try:
+        with h5py.File(filename, 'r') as hf:
+            if 'trajectories' in hf:
+                existing = list(hf['trajectories'].keys())
+
+                if existing:
+                    nums = [int(traj) for traj in existing if traj.isdigit()]
+                    return max(nums) + 1 if nums else 0
+            return 0
+     except:
+        return 0
 def save_single_trajectory():
     
     xml_path = 'balllauncher/balllaunch.xml'
@@ -235,9 +256,9 @@ def save_single_trajectory():
     )
     
     return filename
+    
 
-
-def load_and_analyze_trajectory(filename="my_trajectory.hdf5"):
+def load_and_analyze_trajectory(filename="trajectory_dataset.hdf5"):
     xml_path = 'balllauncher/balllaunch.xml'
     creator = SingleShotDatasetCreator(xml_path)
     
