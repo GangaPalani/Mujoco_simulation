@@ -1,19 +1,38 @@
 import h5py
 import numpy as np
-import pathlib
-from datetime import datetime
-from launch_simulation import SimpleTableTennisLauncher
+from launch8 import SimpleTableTennisLauncher
 import os
-#cutting trajectory till first contact
+from tqdm import tqdm
+import time
 
+"""
+ TABLE TENNIS TRAJECTORY DATASET CREATION
+ --------------------------------------------
+Automated trajectory generation :
+* Runs table tennis simulations with 5 input parameters (phi, theta, rpm_tl, rpm_tr, rpm_bc)
+* Records complete ball trajectories until first contact (table or ground)
+* Stores ONLY trajectories that hit the table first (filters out ground-first hits)
+* Saves data in HDF5 format 
+
+- Cuts trajectories at exact contact point for clean datasets
+-  HDF5 storage
+- Error handling and trajectory filtering
+
+"""
 class SingleShotDatasetCreator:
-
     def __init__(self, xml_path):
         self.launcher = SimpleTableTennisLauncher(xml_path)
     
     def cut_trajectory_on_first_contact(self, positions, velocities, times, 
                                   hit_table, table_hit_position, 
                                   hit_ground, ground_hit_position):
+     """ 
+        1. Determine which contact happened first (table vs ground)
+        2. Find closest trajectory point to actual contact position
+        3. Cut all arrays (positions, velocities, times) at that index
+        4. Replace final point with exact contact coordinates
+
+    """
     
      if not hit_table and not hit_ground:
         return positions, velocities, times
@@ -45,6 +64,7 @@ class SingleShotDatasetCreator:
      return positions, velocities, times
 
     def _find_closest_point_to_contact(self, positions, contact_position):
+      #Finds trajectory index closest to contact point
       min_distance = float('inf')
       best_index = 0
     
@@ -60,7 +80,25 @@ class SingleShotDatasetCreator:
                                 filename="single_shot_trajectory.hdf5",
                                 use_system_effects=False, ramp_time=3.0,
                                 stroke_gain=0.10, pinch_diameter=37.4,
-                                cut_at_contact=True):
+                              cut_at_contact=True):
+        """
+        1. Run MuJoCo simulation with given parameters
+        2. Extract trajectory data (positions, velocities, times)
+        3. Apply trajectory cutting if requested
+        4. Filter out ground-first trajectories (only save table-first)
+        5. Structure data in HDF5 format with metadata
+        6. Append to existing dataset or create new file
+        
+        HDF5 Structure:
+        /trajectories/
+        ├── 000000/  (trajectory index)
+        │   ├── launch_parameters  [phi, theta, rpm_tl, rpm_tr, rpm_bc]
+        │   ├── positions         [N×3 array: x,y,z coordinates]
+        │   ├── velocities        [N×3 array: vx,vy,vz components]  
+        │   ├── times             [N×1 array: simulation timestamps]
+        │   ├── table_hit_position [3×1 array: contact coordinates]
+        │   └── attributes       (metadata: hit_table, hit_ground, etc.)
+        """
         
         print(f"Generating trajectory for parameters:")
         print(f"  φ = {phi:.4f} rad ({phi*180/np.pi:.1f}°)")
@@ -219,9 +257,11 @@ class SingleShotDatasetCreator:
             return None
 
     def check_dataset_exists(self, filename):
+     #file existence validation
      return os.path.exists(filename)
 
     def get_next_trajectory_index(self, filename):
+     #Scan existing trajectory keys, find maximum index, increment by 1
      try:
         with h5py.File(filename, 'r') as hf:
             if 'trajectories' in hf:
@@ -234,6 +274,7 @@ class SingleShotDatasetCreator:
      except:
         return 0
 def save_single_trajectory():
+    #for single trajectory generation
     
     xml_path = 'balllauncher/balllaunch.xml'
     creator = SingleShotDatasetCreator(xml_path)
@@ -259,6 +300,7 @@ def save_single_trajectory():
     
 
 def load_and_analyze_trajectory(filename="trajectory_dataset.hdf5"):
+
     xml_path = 'balllauncher/balllaunch.xml'
     creator = SingleShotDatasetCreator(xml_path)
     
@@ -267,14 +309,67 @@ def load_and_analyze_trajectory(filename="trajectory_dataset.hdf5"):
     return data
 
 
+def generate_small_dataset():
+    #Batch wise trajectory
+    """
+     BATCH GENERATION MODE: Automated dataset creation with parameter sweeps
+     Generate large training datasets for machine learning
+    - Nested parameter loops (phi × theta × rpm combinations)
+    - Success/skip/error counting
+    
+    Dataset Coverage:
+    - phi: -0.2 to 0.2 rad (horizontal angles, 5 values)
+    - theta: 0.1 to 0.4 rad (vertical angles, 4 values)  
+    - rpm: 500 to 1000 (all 3 wheels, 11 values each)
+    - Total: 5 × 4 × 11³ = 26,620 combinations
+    """
+
+    xml_path = 'balllauncher/balllaunch.xml'
+    creator = SingleShotDatasetCreator(xml_path)
+    out_file = "small_trajectory_dataset.hdf5"
+
+    # Small test ranges
+    phi_values = np.arange(-0.2, 0.21, 0.1)    
+    theta_values = np.arange(0.1, 0.5, 0.1)      
+    rpm_values = np.arange(500, 1001, 50)       
+
+    total_combinations = len(phi_values) * len(theta_values) * len(rpm_values)**3
+    print(f"Total combinations: {total_combinations}")
+    
+    pbar = tqdm(total=total_combinations, desc="Generating trajectories")
+    success, skipped, errors = 0, 0, 0
+    start_time = time.time()
+
+    for phi in phi_values:
+        for theta in theta_values:
+            for rpm_tl in rpm_values:
+                for rpm_tr in rpm_values:
+                    for rpm_bc in rpm_values:
+                        try:
+                            result = creator.save_single_shot_to_hdf5(
+                                phi=phi, theta=theta,
+                                rpm_tl=rpm_tl, rpm_tr=rpm_tr, rpm_bc=rpm_bc,
+                                filename=out_file,
+                                use_system_effects=False,
+                                cut_at_contact=True
+                            )
+                            if result is not None:
+                                success += 1
+                            else:
+                                skipped += 1
+                        except Exception as e:
+                            print(f"Error [{phi}, {theta}, {rpm_tl}, {rpm_tr}, {rpm_bc}]: {e}")
+                            errors += 1
+                        pbar.update(1)
+    pbar.close()
+    total = success + skipped + errors
+    elapsed = time.time() - start_time
+
+    print(f"\nCompleted {total}/{total_combinations} simulations in {elapsed:.1f}s ({elapsed/60:.2f} min)")
+    print(f"Success: {success} | Skipped: {skipped} | Errors: {errors}")
+    print(f"Final dataset: {out_file}")
+
+    return out_file
+
 if __name__ == "__main__":
-    print("Saving single trajectory...")
-    filename = save_single_trajectory()
-    
-    print(f"\n{'='*60}")
-    print("Loading and analyzing saved trajectory...")
-    data = load_and_analyze_trajectory(filename)
-    
-    if data is not None:
-        print(f"\nTrajectory successfully loaded!")
-        print(f"Data contains {len(data['positions'])} trajectory points")
+    generate_small_dataset()
