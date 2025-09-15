@@ -667,59 +667,6 @@ class SimpleTableTennisLauncher:
      plt.tight_layout()
      plt.show()
 
-    """def view_single_shot(self, phi, theta, rpm_tl, rpm_tr, rpm_bc, ramp_time, stroke_gain, pinch_diameter, shot_num):
-      print(f"\n--- Viewing Shot {shot_num} ---")
-    
-      result = self.get_hitting_position_with_system_effects(
-        phi, theta, rpm_tl, rpm_tr, rpm_bc, 
-        ramp_time=ramp_time, stroke_gain=stroke_gain, pinch_diameter=pinch_diameter
-    )
-    
-      if result['hit_found_table']:
-        print(f"Shot {shot_num} landed at: ({result['hit_position_table'][0]:.3f}, {result['hit_position_table'][1]:.3f}, {result['hit_position_table'][2]:.3f})")
-      else:
-        print(f"Shot {shot_num} missed the table")
-    
-      self.run_3d_viewer(phi, theta, rpm_tl, rpm_tr, rpm_bc) """
-    
-
-    def test_magnus_direction(self):
-     """Test Magnus force directions with mixed spins"""
-    
-     # Test Case A: Right sidespin + small topspin
-     omega_right = np.array([0.0, +70.0, -5.0])  # ← Add small topspin
-     velocity = np.array([4.0, 0.1, 2.0])
-    
-     cross_right = np.cross(omega_right, velocity)
-     F_magnus_right = 5e-5 * cross_right
-    
-     print("RIGHT SIDESPIN + TOPSPIN TEST:")
-     print(f"  omega: {omega_right}")
-     print(f"  velocity: {velocity}")
-     print(f"  cross product: {cross_right}")
-     print(f"  Magnus force: {F_magnus_right}")
-     print(f"  Y-force: {F_magnus_right[1]:.6f}")
-    
-    # Test Case B: Left sidespin + small topspin
-     omega_left = np.array([0.0, -70.0, -5.0])  # ← Same topspin
-     velocity = np.array([4.0, 0.1, 2.0])
-    
-     cross_left = np.cross(omega_left, velocity)
-     F_magnus_left = 5e-5 * cross_left
-    
-     print("\nLEFT SIDESPIN + TOPSPIN TEST:")
-     print(f"  omega: {omega_left}")
-     print(f"  velocity: {velocity}")  
-     print(f"  cross product: {cross_left}")
-     print(f"  Magnus force: {F_magnus_left}")
-     print(f"  Y-force: {F_magnus_left[1]:.6f}")
-    
-     print(f"\n*** Y-FORCES SHOULD BE OPPOSITE SIGNS ***")
-     print(f"Right sidespin Y-force: {F_magnus_right[1]:+.6f}")
-     print(f"Left sidespin Y-force:  {F_magnus_left[1]:+.6f}")
-
-
-
 
 def main():
     xml_path = 'balllauncher/balllaunch.xml'
@@ -776,10 +723,6 @@ def main():
             rpm_tr_int = int(round(rpm_tr))
             rpm_bc_int = int(round(rpm_bc))
 
-            # Before your existing launch code
-            
-
-            
             if choice == '1':
                 launcher.analyze_parameters(phi, theta, rpm_tl_int, rpm_tr_int, rpm_bc_int, 
                                            show_plot=True, show_3d=False,use_system_effects=False)
@@ -833,13 +776,6 @@ def main():
                       hit_positions_list.append([hit_pos])
 
                   launcher.plot_3d_trajectories(trajectories, hit_positions_list)
-
-              """view_3d = input("\nView 3D trajectory for a specific shot? (y/n, default n): ").strip().lower()
-               if view_3d == 'y':
-                shot_num = int(input(f"Enter shot number (1-{len(landing_positions)}): "))
-                print(f"Launching 3D viewer for shot {shot_num}...")
-                launcher.view_single_shot(phi, theta, rpm_tl_int, rpm_tr_int, rpm_bc_int, 
-                                    ramp_time, stroke_gain, pinch_diameter, shot_num) """
 
         except ValueError as e:
            print(f" Invalid numeric input: {e}")
